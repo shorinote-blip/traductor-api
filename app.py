@@ -4,25 +4,42 @@ import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 
-# 🔥 crear app
 app = Flask(__name__)
 CORS(app)
 
-# headers para evitar bloqueos
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# 🌐 traducir texto
+# 💾 CACHE (memoria)
+cache = {}
+
+# 🌐 traducir (rápido)
 def traducir(texto):
     try:
         return GoogleTranslator(source='auto', target='es').translate(texto)
     except:
         return texto
 
-# 🧠 scraper
+# 🧠 traducir SOLO lo necesario
+def traducir_ligero(texto):
+    lineas = texto.split("\n")
+    resultado = []
+
+    for linea in lineas[:40]:  # 🔥 LIMITE CLAVE
+        if linea.strip():
+            resultado.append(traducir(linea.strip()))
+
+    return "\n".join(resultado)
+
+# 🚀 SCRAPER OPTIMIZADO
 def scrape(url):
-    res = requests.get(url, headers=headers)
+
+    # 🔥 CACHE (si ya existe, regresa rápido)
+    if url in cache:
+        return cache[url]
+
+    res = requests.get(url, headers=headers, timeout=10)
     soup = BeautifulSoup(res.text, "html.parser")
 
     data = {
@@ -40,9 +57,11 @@ def scrape(url):
             data["titulo"] = traducir(titulo.text.strip())
 
         if contenido:
-            data["descripcion"] = traducir(contenido.get_text("\n"))
+            texto = contenido.get_text("\n")
+            data["descripcion"] = traducir_ligero(texto)
 
-            for img in contenido.find_all("img"):
+            imgs = contenido.find_all("img")[:15]  # 🔥 límite imágenes
+            for img in imgs:
                 src = img.get("src")
                 if src:
                     if src.startswith("/"):
@@ -58,20 +77,26 @@ def scrape(url):
             data["titulo"] = traducir(titulo.text.strip())
 
         if contenido:
-            data["descripcion"] = traducir(contenido.get_text("\n"))
+            texto = contenido.get_text("\n")
+            data["descripcion"] = traducir_ligero(texto)
 
-            for img in contenido.find_all("img"):
+            imgs = contenido.find_all("img")[:15]
+            for img in imgs:
                 src = img.get("src")
                 if src:
                     data["imagenes"].append(src)
 
+    # 💾 guardar en cache
+    cache[url] = data
+
     return data
 
-# 🚀 API
+
 @app.route("/api", methods=["POST"])
 def api():
     try:
         url = request.json.get("url")
+
         if not url:
             return jsonify({"error": "No URL enviada"})
 
@@ -81,11 +106,11 @@ def api():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-# 🧪 ruta principal
+
 @app.route("/")
 def home():
-    return "API funcionando 🚀"
+    return "API rápida ⚡ funcionando"
 
-# 🔥 IMPORTANTE para Render
+
 if __name__ == "__main__":
     app.run()
