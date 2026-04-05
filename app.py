@@ -1,23 +1,26 @@
-from flask_cors import CORS
-CORS(app)
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
-import requests
 
+# 🔥 crear app
 app = Flask(__name__)
+CORS(app)
 
+# headers para evitar bloqueos
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# 🌐 traducir texto
 def traducir(texto):
     try:
         return GoogleTranslator(source='auto', target='es').translate(texto)
     except:
         return texto
 
-
+# 🧠 scraper
 def scrape(url):
     res = requests.get(url, headers=headers)
     soup = BeautifulSoup(res.text, "html.parser")
@@ -64,16 +67,25 @@ def scrape(url):
 
     return data
 
-
+# 🚀 API
 @app.route("/api", methods=["POST"])
 def api():
-    url = request.json["url"]
-    return jsonify(scrape(url))
+    try:
+        url = request.json.get("url")
+        if not url:
+            return jsonify({"error": "No URL enviada"})
 
+        resultado = scrape(url)
+        return jsonify(resultado)
 
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+# 🧪 ruta principal
 @app.route("/")
 def home():
-    return "API funcionando"
+    return "API funcionando 🚀"
 
-
-app.run()
+# 🔥 IMPORTANTE para Render
+if __name__ == "__main__":
+    app.run()
