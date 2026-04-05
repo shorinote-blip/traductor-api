@@ -1,10 +1,15 @@
+from flask_cors import CORS
+CORS(app)
 from flask import Flask, request, jsonify
-from selenium import webdriver
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
-import time
+import requests
 
 app = Flask(__name__)
+
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
 def traducir(texto):
     try:
@@ -14,21 +19,13 @@ def traducir(texto):
 
 
 def scrape(url):
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-
-    driver = webdriver.Chrome(options=options)
-    driver.get(url)
-    time.sleep(6)
-
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    driver.quit()
+    res = requests.get(url, headers=headers)
+    soup = BeautifulSoup(res.text, "html.parser")
 
     data = {
         "titulo": "",
         "imagenes": [],
-        "descripcion": "",
-        "info": ""
+        "descripcion": ""
     }
 
     # 🔴 F95ZONE
@@ -37,14 +34,12 @@ def scrape(url):
         contenido = soup.select_one(".message-content")
 
         if titulo:
-            data["titulo"] = traducir(titulo.text)
+            data["titulo"] = traducir(titulo.text.strip())
 
         if contenido:
             data["descripcion"] = traducir(contenido.get_text("\n"))
 
-            # imágenes
-            imgs = contenido.find_all("img")
-            for img in imgs:
+            for img in contenido.find_all("img"):
                 src = img.get("src")
                 if src:
                     if src.startswith("/"):
@@ -57,13 +52,12 @@ def scrape(url):
         contenido = soup.select_one(".entry-content")
 
         if titulo:
-            data["titulo"] = traducir(titulo.text)
+            data["titulo"] = traducir(titulo.text.strip())
 
         if contenido:
             data["descripcion"] = traducir(contenido.get_text("\n"))
 
-            imgs = contenido.find_all("img")
-            for img in imgs:
+            for img in contenido.find_all("img"):
                 src = img.get("src")
                 if src:
                     data["imagenes"].append(src)
@@ -74,8 +68,12 @@ def scrape(url):
 @app.route("/api", methods=["POST"])
 def api():
     url = request.json["url"]
-    resultado = scrape(url)
-    return jsonify(resultado)
+    return jsonify(scrape(url))
+
+
+@app.route("/")
+def home():
+    return "API funcionando"
 
 
 app.run()
