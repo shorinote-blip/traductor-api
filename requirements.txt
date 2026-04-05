@@ -1,5 +1,6 @@
 flask
-selenium
 beautifulsoup4
+requests
 deep-translator
 gunicorn
+flask-cors
