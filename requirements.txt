@@ -1,6 +1,6 @@
 flask
-beautifulsoup4
+flask-cors
 requests
+beautifulsoup4
 deep-translator
 gunicorn
-flask-cors
