@@ -11,31 +11,18 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# 💾 CACHE (memoria)
+# 💾 cache
 cache = {}
 
-# 🌐 traducir (rápido)
 def traducir(texto):
     try:
         return GoogleTranslator(source='auto', target='es').translate(texto)
     except:
         return texto
 
-# 🧠 traducir SOLO lo necesario
-def traducir_ligero(texto):
-    lineas = texto.split("\n")
-    resultado = []
 
-    for linea in lineas[:40]:  # 🔥 LIMITE CLAVE
-        if linea.strip():
-            resultado.append(traducir(linea.strip()))
-
-    return "\n".join(resultado)
-
-# 🚀 SCRAPER OPTIMIZADO
 def scrape(url):
 
-    # 🔥 CACHE (si ya existe, regresa rápido)
     if url in cache:
         return cache[url]
 
@@ -58,9 +45,9 @@ def scrape(url):
 
         if contenido:
             texto = contenido.get_text("\n")
-            data["descripcion"] = traducir_ligero(texto)
+            data["descripcion"] = texto[:3000]  # ⚡ SIN traducir
 
-            imgs = contenido.find_all("img")[:15]  # 🔥 límite imágenes
+            imgs = contenido.find_all("img")[:15]
             for img in imgs:
                 src = img.get("src")
                 if src:
@@ -71,24 +58,26 @@ def scrape(url):
     # 🔵 LEWD.NINJA
     elif "lewd.ninja" in url:
         titulo = soup.find("h1")
-        contenido = soup.select_one(".entry-content")
+        contenido = (
+            soup.select_one(".entry-content") or
+            soup.select_one(".content") or
+            soup.select_one("article")
+        )
 
         if titulo:
             data["titulo"] = traducir(titulo.text.strip())
 
         if contenido:
             texto = contenido.get_text("\n")
-            data["descripcion"] = traducir_ligero(texto)
+            data["descripcion"] = texto[:3000]
 
-            imgs = contenido.find_all("img")[:15]
+            imgs = soup.find_all("img")[:20]
             for img in imgs:
                 src = img.get("src")
                 if src:
                     data["imagenes"].append(src)
 
-    # 💾 guardar en cache
     cache[url] = data
-
     return data
 
 
@@ -96,12 +85,27 @@ def scrape(url):
 def api():
     try:
         url = request.json.get("url")
+        return jsonify(scrape(url))
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
-        if not url:
-            return jsonify({"error": "No URL enviada"})
 
-        resultado = scrape(url)
-        return jsonify(resultado)
+# 🔥 TRADUCCIÓN EN BACKGROUND
+@app.route("/traducir", methods=["POST"])
+def traducir_api():
+    try:
+        texto = request.json.get("texto")
+
+        lineas = texto.split("\n")
+        traducido = []
+
+        for linea in lineas[:40]:
+            if linea.strip():
+                traducido.append(traducir(linea))
+
+        return jsonify({
+            "traducido": "\n".join(traducido)
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)})
